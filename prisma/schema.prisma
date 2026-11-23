@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EngagementStatus {
+  DRAFT
+  ACTIVE
+  REPORTING
+  COMPLETE
+}
+
+enum FindingSeverity {
+  INFORMATIONAL
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum FindingStatus {
+  OBSERVED
+  VALIDATED
+  FALSE_POSITIVE
+  REMEDIATION_PENDING
+  RETEST_PASSED
+  RETEST_FAILED
+  CLOSED
+}
+
+model Engagement {
+  id            String           @id @default(cuid())
+  name          String
+  description   String?
+  status        EngagementStatus @default(DRAFT)
+  authorized    Boolean          @default(false)
+  authorization String
+  startDate     DateTime?
+  endDate       DateTime?
+  assets        Asset[]
+  findings      Finding[]
+  auditEvents   AuditEvent[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+}
+
+model Asset {
+  id           String     @id @default(cuid())
+  engagementId String
+  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  url          String
+  environment  String     @default("Production")
+  inScope      Boolean    @default(false)
+  technology   String?
+  excluded     Boolean    @default(false)
+  findings     Finding[]
+  createdAt    DateTime   @default(now())
+  @@index([engagementId])
+}
+
+model Finding {
+  id           String          @id @default(cuid())
+  engagementId String
+  engagement   Engagement      @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  assetId      String?
+  asset        Asset?          @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  title        String
+  description  String
+  impact       String?
+  remediation  String?
+  evidence     Json?
+  confidence   String          @default("Needs validation")
+  severity     FindingSeverity @default(INFORMATIONAL)
+  status       FindingStatus   @default(OBSERVED)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  @@index([engagementId, status])
+  @@index([assetId])
+}
+
+model AuditEvent {
+  id           String     @id @default(cuid())
+  engagementId String
+  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  action       String
+  detail       String?
+  actor        String?
+  createdAt    DateTime   @default(now())
+  @@index([engagementId, createdAt])
+}

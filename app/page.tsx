@@ -1,67 +1,62 @@
-const stats = [
-  { label: "Engagements", value: "01", note: "1 active" },
-  { label: "In-scope assets", value: "03", note: "Across 1 engagement" },
-  { label: "Findings", value: "04", note: "2 need validation" },
-  { label: "Open findings", value: "03", note: "1 high priority" }
-];
+"use client";
 
-const findings = [
-  { title: "Session token not revoked on sign-out", asset: "app.example.test", severity: "High", status: "Validated" },
-  { title: "Missing content security policy", asset: "app.example.test", severity: "Medium", status: "Observed" },
-  { title: "Verbose error response", asset: "api.example.test", severity: "Low", status: "Needs review" }
-];
+import { FormEvent, useCallback, useEffect, useState } from "react";
+
+type Asset = { id: string; url: string; inScope: boolean; excluded: boolean; scans: { result: { status: number; checkedAt: string; observations: string[]; headers: Record<string, string | null> } }[] };
+type Engagement = { id: string; name: string; authorization: string; assets: Asset[]; _count: { findings: number } };
 
 export default function Home() {
-  return (
-    <main className="app-shell">
-      <aside className="sidebar">
-        <a className="brand" href="#overview"><span className="brand-mark">P</span><span>Pentest<span className="brand-blue">Workspace</span></span></a>
-        <p className="nav-label">WORKSPACE</p>
-        <nav aria-label="Main navigation">
-          <a className="nav-item active" href="#overview"><span>▦</span> Overview</a>
-          <a className="nav-item" href="#engagement"><span>◫</span> Engagements</a>
-          <a className="nav-item" href="#scope"><span>◎</span> Scope & assets</a>
-          <a className="nav-item" href="#findings"><span>◇</span> Findings</a>
-          <a className="nav-item" href="#report"><span>▤</span> Reports</a>
-        </nav>
-        <div className="sidebar-bottom">
-          <div className="authorization-card"><span className="shield">✓</span><strong>Authorized testing only</strong><p>Only assess systems you own or have explicit permission to test.</p></div>
-          <div className="profile"><div className="avatar">JT</div><div><strong>Joe Tester</strong><small>Workspace owner</small></div><span className="more">···</span></div>
-        </div>
-      </aside>
+  const [engagements, setEngagements] = useState<Engagement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
 
-      <section className="main-content" id="overview">
-        <header className="topbar"><div className="breadcrumbs">Workspace <span>/</span> Overview</div><div className="top-actions"><span className="demo-chip">DEMO DATA</span><button className="icon-button" aria-label="Notifications">♧<i /></button><div className="avatar small-avatar">JT</div></div></header>
-        <div className="page-heading"><div><p className="eyebrow">MONDAY, NOVEMBER 23, 2026</p><h1>Good morning, Joe <span>✦</span></h1><p className="subheading">Here’s the latest on your security assessments.</p></div><a className="button primary-button" href="#engagement">＋ New engagement</a></div>
+  const refresh = useCallback(async () => {
+    try {
+      const response = await fetch("/api/engagements", { cache: "no-store" });
+      if (!response.ok) throw new Error("Unable to load stored assessments. Check database and server configuration.");
+      setEngagements(await response.json());
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Unable to load assessments."); }
+    finally { setLoading(false); }
+  }, []);
+  useEffect(() => { void refresh(); }, [refresh]);
 
-        <section className="stats-grid" aria-label="Workspace summary">
-          {stats.map((item, index) => <article className="stat-card" key={item.label}><div className={`stat-icon icon-${index}`}>{["▣", "◎", "◇", "↗"][index]}</div><span className="stat-note">{item.note}</span><p>{item.label}</p><strong>{item.value}</strong></article>)}
-        </section>
+  async function createAssessment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setMessage("Creating assessment…");
+    const form = new FormData(event.currentTarget);
+    const response = await fetch("/api/engagements", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: form.get("name"), origin: form.get("origin"), authorization: form.get("authorization"), confirmAuthorization: form.get("confirmAuthorization") === "on" }) });
+    const data = await response.json();
+    if (!response.ok) { setMessage(data.error ?? "Could not create assessment."); return; }
+    event.currentTarget.reset(); setMessage("Assessment saved."); await refresh();
+  }
 
-        <div className="dashboard-grid">
-          <section className="card engagement-card" id="engagement">
-            <div className="card-heading"><div><p className="eyebrow">CURRENT ENGAGEMENT</p><h2>Example Web Application</h2></div><span className="pill pill-green"><i /> Authorized</span></div>
-            <div className="engagement-meta"><span>◷ &nbsp;Nov 20 – Dec 04, 2026</span><span>♧ &nbsp;Web application</span><span>▧ &nbsp;12 endpoints documented</span></div>
-            <div className="progress-label"><span>Assessment progress</span><strong>58%</strong></div><div className="progress-track"><span /></div>
-            <div className="workflow"><div className="workflow-step complete"><span>✓</span><div><strong>Authorization</strong><small>Confirmed</small></div></div><div className="workflow-step complete"><span>✓</span><div><strong>Scope & inventory</strong><small>3 assets documented</small></div></div><div className="workflow-step current"><span>3</span><div><strong>Assessment</strong><small>In progress</small></div></div><div className="workflow-step"><span>4</span><div><strong>Report & retest</strong><small>Not started</small></div></div></div>
-            <a className="text-link" href="#scope">View engagement details <span>→</span></a>
-          </section>
+  async function runCheck(assetId: string) {
+    setBusy(assetId); setMessage("Running one low-impact HTTPS header check…");
+    try {
+      const response = await fetch("/api/scans/passive", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ assetId }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Check failed.");
+      setMessage("Passive check saved. Review observations before treating them as findings."); await refresh();
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Check failed."); }
+    finally { setBusy(null); }
+  }
 
-          <section className="card scope-card" id="scope">
-            <div className="card-heading"><div><p className="eyebrow">SAFETY CHECK</p><h2>Scope health</h2></div><span className="pill pill-blue">All clear</span></div>
-            <div className="scope-summary"><div className="scope-ring"><div><strong>100%</strong><small>Confirmed</small></div></div><div><strong>3 assets</strong><p>2 in scope<br />1 excluded</p></div></div>
-            <ul className="scope-list"><li><span>✓</span> Written authorization recorded</li><li><span>✓</span> In-scope assets documented</li><li><span>✓</span> Exclusions clearly marked</li></ul>
-            <a className="text-link" href="#scope">Review scope <span>→</span></a>
-          </section>
-        </div>
-
-        <section className="card findings-card" id="findings">
-          <div className="card-heading"><div><p className="eyebrow">LATEST ACTIVITY</p><h2>Recent findings</h2></div><a className="button secondary-button" href="#findings">View all findings <span>→</span></a></div>
-          <div className="table-wrap"><table><thead><tr><th>FINDING</th><th>ASSET</th><th>SEVERITY</th><th>STATUS</th><th>UPDATED</th><th /></tr></thead><tbody>{findings.map((item, index) => <tr key={item.title}><td><span className={`finding-icon finding-${index}`}>{index === 0 ? "↑" : "◇"}</span><strong>{item.title}</strong></td><td className="muted-cell">{item.asset}</td><td><span className={`severity severity-${item.severity.toLowerCase()}`}>{item.severity}</span></td><td><span className="finding-status"><i className={index === 0 ? "dot-purple" : "dot-gray"} />{item.status}</span></td><td className="muted-cell">{index === 0 ? "2 hours ago" : `${index + 1} days ago`}</td><td className="row-more">···</td></tr>)}</tbody></table></div>
-        </section>
-
-        <footer className="footer-note" id="report"><span>◈</span> This workspace does not run scans or exploitation tools. Record authorized, tester-verified assessment results here.</footer>
+  return <main className="workspace">
+    <header className="workspace-header"><a className="brand" href="#">PENTEST <span>WORKSPACE</span></a><span className="safe-label">AUTHORIZED ASSESSMENTS ONLY</span></header>
+    <section className="intro"><div><p className="eyebrow">ASSESSMENT WORKSPACE</p><h1>Web application assessments</h1><p className="subheading">Document authorization, keep assets in scope, and run a single passive HTTPS header check.</p></div></section>
+    {message && <div className="notice" role="status">{message}</div>}
+    <div className="workspace-grid">
+      <section className="panel form-panel"><p className="eyebrow">NEW ENGAGEMENT</p><h2>Record authorization and scope</h2><form onSubmit={createAssessment}>
+        <label>Engagement name<input name="name" minLength={2} maxLength={120} required placeholder="e.g. Company website review" /></label>
+        <label>Authorized HTTPS origin<input name="origin" type="url" required placeholder="https://app.example.com" /><small>Only the exact hosts configured by the operator are accepted.</small></label>
+        <label>Authorization notes<textarea name="authorization" minLength={10} maxLength={5000} required placeholder="Record who authorized this assessment and the approved dates or boundaries." /></label>
+        <label className="confirm"><input type="checkbox" name="confirmAuthorization" required /> I have explicit permission to assess this system and confirm this target is in scope.</label>
+        <button className="primary-button" type="submit">Save authorized assessment</button>
+      </form></section>
+      <section className="panel assessments"><div className="section-title"><div><p className="eyebrow">SAVED TO POSTGRESQL</p><h2>Your assessments</h2></div><button className="secondary-button" onClick={() => void refresh()}>Refresh</button></div>
+        {loading ? <p className="empty">Loading assessments…</p> : engagements.length === 0 ? <p className="empty">No saved assessments yet. Create one after configuring your database and allowed hostnames.</p> : engagements.map((engagement) => <article className="assessment" key={engagement.id}><div className="assessment-heading"><div><h3>{engagement.name}</h3><span>{engagement.assets.length} scoped asset{engagement.assets.length === 1 ? "" : "s"}</span></div><span className="authorized-badge">Authorized</span></div>{engagement.assets.map((asset) => <div className="asset" key={asset.id}><div><strong>{asset.url}</strong><small>In scope · HTTPS only</small></div><button className="primary-button scan-button" disabled={busy === asset.id} onClick={() => void runCheck(asset.id)}>{busy === asset.id ? "Checking…" : "Run passive check"}</button></div>)}{engagement.assets.map((asset) => asset.scans?.[0] && <div className="scan-result" key={asset.scans[0].result.checkedAt}><strong>Latest check · HTTP {asset.scans[0].result.status}</strong><span>{new Date(asset.scans[0].result.checkedAt).toLocaleString()}</span>{asset.scans[0].result.observations.length ? <ul>{asset.scans[0].result.observations.map((observation) => <li key={observation}>{observation}</li>)}</ul> : <p>No missing checked headers were observed. This is not a comprehensive security assessment.</p>}</div>)}</article>)}
       </section>
-    </main>
-  );
+    </div>
+    <footer className="disclaimer"><strong>Check limits:</strong> The check sends one HTTPS HEAD request to the configured origin. It does not crawl pages, submit forms, test vulnerabilities, run exploits, or use brute force. Only configure hosts for which you have written authorization. Results are observations, not confirmed vulnerabilities.</footer>
+  </main>;
 }

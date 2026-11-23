@@ -1,0 +1,11 @@
+model ScanRun {
+  id           String     @id @default(cuid())
+  engagementId String
+  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  assetId      String
+  asset        Asset      @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  result       Json
+  createdAt    DateTime   @default(now())
+  @@index([engagementId, createdAt])
+  @@index([assetId, createdAt])
+}

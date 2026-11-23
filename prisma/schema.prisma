@@ -43,6 +43,7 @@ model Engagement {
   endDate       DateTime?
   assets        Asset[]
   findings      Finding[]
+  scans         ScanRun[]
   auditEvents   AuditEvent[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
@@ -58,6 +59,7 @@ model Asset {
   technology   String?
   excluded     Boolean    @default(false)
   findings     Finding[]
+  scans        ScanRun[]
   createdAt    DateTime   @default(now())
   @@index([engagementId])
 }
@@ -80,6 +82,18 @@ model Finding {
   updatedAt    DateTime        @updatedAt
   @@index([engagementId, status])
   @@index([assetId])
+}
+
+model ScanRun {
+  id           String     @id @default(cuid())
+  engagementId String
+  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  assetId      String
+  asset        Asset      @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  result       Json
+  createdAt    DateTime   @default(now())
+  @@index([engagementId, createdAt])
+  @@index([assetId, createdAt])
 }
 
 model AuditEvent {

@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   const engagement = await prisma.engagement.findUnique({ where: { id: body.engagementId }, include: { assets: true } });
   if (!engagement) return NextResponse.json({ error: "Assessment not found." }, { status: 404 });
   const toolName = typeof body.report.tool === "string" ? body.report.tool.trim().slice(0, 80) : "Imported report";
-  const rows = [];
+  const rows: any[] = [];
   for (const item of body.report.findings) {
     if (!item || typeof item.title !== "string" || item.title.trim().length < 3 || typeof item.description !== "string" || item.description.trim().length < 10) continue;
     let assetId: string | undefined;

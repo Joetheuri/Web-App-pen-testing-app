@@ -44,6 +44,7 @@ model Engagement {
   assets        Asset[]
   findings      Finding[]
   scans         ScanRun[]
+  toolActivities ToolActivity[]
   auditEvents   AuditEvent[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
@@ -94,6 +95,17 @@ model ScanRun {
   createdAt    DateTime   @default(now())
   @@index([engagementId, createdAt])
   @@index([assetId, createdAt])
+}
+
+model ToolActivity {
+  id           String     @id @default(cuid())
+  engagementId String
+  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  toolName     String
+  activityType String
+  notes        String
+  createdAt    DateTime   @default(now())
+  @@index([engagementId, createdAt])
 }
 
 model AuditEvent {

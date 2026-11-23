@@ -1,0 +1,13 @@
+// Add this relation to the Engagement model in the main Prisma schema:
+// toolActivities ToolActivity[]
+// Add the ToolActivity model below to prisma/schema.prisma.
+model ToolActivity {
+  id           String     @id @default(cuid())
+  engagementId String
+  engagement   Engagement @relation(fields: [engagementId], references: [id], onDelete: Cascade)
+  toolName     String
+  activityType String
+  notes        String
+  createdAt    DateTime   @default(now())
+  @@index([engagementId, createdAt])
+}

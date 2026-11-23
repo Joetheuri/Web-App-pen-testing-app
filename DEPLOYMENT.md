@@ -12,6 +12,7 @@ The app needs a Node.js server and PostgreSQL. It cannot run its API or save ass
    - `APP_BASIC_AUTH_USER`: a unique operator username.
    - `APP_BASIC_AUTH_PASSWORD`: a long, unique random password; keep it secret.
    - `PASSIVE_SCAN_ALLOWED_HOSTS`: comma-separated exact hostnames for authorized HTTPS assets only, without scheme or path, e.g. `portal.example.com`.
+   - `EXTERNAL_WORKSTATION_URL`: optional HTTPS URL to your approved, separately managed workstation portal.
    - `NODE_ENV`: `production`.
 5. Set the web service to build using the repository `Dockerfile`. The container starts the app after applying the Prisma schema and listens on port 3000. Use Railway's generated HTTPS domain.
 6. Open the public domain and sign in with the Basic Auth credentials. Create an authorized assessment and test against an allowlisted hostname only.
